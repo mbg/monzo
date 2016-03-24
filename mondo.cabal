@@ -51,7 +51,8 @@ library
   exposed-modules:      Mondo
 
   -- Modules included in this library but not exported.
-  -- other-modules:
+  other-modules:        Mondo.API,
+                        Mondo.Types
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
