@@ -10,7 +10,7 @@ name:                   mondo
 -- PVP summary:         +-+------- breaking API changes
 --                      | | +----- non-breaking API additions
 --                      | | | +--- code changes with no API change
-version:                0.1.0.0
+version:                0.2.0.0
 
 -- A short (one-line) description of the package.
 synopsis:               Haskell bindings for the Mondo API
@@ -71,7 +71,9 @@ library
                         http-client-tls >= 0.2,
                         authenticate-oauth >=1.5,
                         bytestring >=0.10,
-                        mtl
+                        mtl,
+                        text >= 1.2,
+                        containers
 
   -- Directories containing source files.
   hs-source-dirs:       src
@@ -87,4 +89,5 @@ library
                         FlexibleInstances,
                         FlexibleContexts,
                         UndecidableInstances,
-                        TypeFamilies
+                        TypeFamilies,
+                        RecordWildCards

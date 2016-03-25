@@ -12,10 +12,44 @@ import GHC.Generics
 import Control.Monad (mzero)
 
 import Data.Aeson
+import Data.Aeson.Types (emptyObject)
+import qualified Data.Text as T
+import qualified Data.Map as M
+import Data.Monoid ((<>))
+
+import Servant.API
 
 --------------------------------------------------------------------------------
 
-type AccountID = String
+data Empty = Empty
+
+instance FromJSON Empty where
+    parseJSON val
+        | val == emptyObject = pure Empty
+        | otherwise          = mzero
+
+toUnit :: Empty -> ()
+toUnit _ = ()
+
+-- | The type of account IDs.
+type AccountID     = String
+
+-- | The type of transaction IDs.
+type TransactionID = String
+
+-- | The type of webhook IDs.
+type WebhookID = String
+
+-- | The type of attachment IDs.
+newtype AttachmentID = AttID T.Text
+    deriving Show
+
+instance FromJSON AttachmentID where
+    parseJSON (String v) = pure $ AttID v
+    parseJSON _          = mzero
+
+instance ToFormUrlEncoded AttachmentID where
+    toFormUrlEncoded (AttID v) = [("id", v)]
 
 --------------------------------------------------------------------------------
 
@@ -43,6 +77,8 @@ data Balance = Balance {
 } deriving (Show, Generic)
 
 instance FromJSON Balance
+
+--------------------------------------------------------------------------------
 
 -- | Enumerates reasons which cause transactions to be declined.
 data DeclineReason
@@ -78,6 +114,7 @@ instance FromJSON Address where
                 <*> v .: "longitude"
                 <*> v .: "postcode"
                 <*> v .: "region"
+    parseJSON _ = mzero
 
 data Merchant = Merchant {
     merchantAddress  :: Maybe Address,
@@ -100,6 +137,7 @@ instance FromJSON Merchant where
                  <*> v .: "emoji"
                  <*> v .: "name"
                  <*> v .: "category"
+    parseJSON _ = mzero
 
 data Transactions = Transactions {
     transactions :: [Transaction]
@@ -121,12 +159,13 @@ data Transaction = Transaction {
     transactionCreated        :: String,
     transactionCurrency       :: String,
     transactionDescription    :: String,
-    transactionID             :: String,
+    transactionID             :: TransactionID,
     transactionDeclineReason  :: Maybe DeclineReason,
     transactionIsLoad         :: Bool,
     transactionSettled        :: Bool,
     transactionCategory       :: Maybe String,
-    transactionMerchant       :: Merchant
+    transactionMerchant       :: Merchant,
+    transactionMetadata       :: M.Map String String
 } deriving Show
 
 instance FromJSON Transaction where
@@ -142,5 +181,143 @@ instance FromJSON Transaction where
                     <*> v .: "settled"
                     <*> v .: "category"
                     <*> v .: "merchant"
+                    <*> v .: "metadata"
+    parseJSON _ = mzero
+
+data Metadata = Metadata { metadata :: M.Map String String }
+
+instance ToFormUrlEncoded Metadata where
+    toFormUrlEncoded (Metadata d) =
+        [("metadata[" <> T.pack k <> "]", T.pack v) | (k,v) <- M.toList d]
+
+--------------------------------------------------------------------------------
+
+data FeedItemType
+    = BasicItem
+
+instance Show FeedItemType where
+    show BasicItem = "basic"
+
+instance ToJSON FeedItemType where
+    toJSON BasicItem = String "basic"
+
+data FeedItemParams
+    = BasicFeedItem {
+        itemTitle            :: String,
+        itemImageURL         :: String,
+        itemBody             :: Maybe String,
+        itemBackgroundColour :: Maybe String,
+        itemTitleColour      :: Maybe String,
+        itemBodyColour       :: Maybe String
+    }
+
+newBasicFeedItem :: String -> String -> FeedItemParams
+newBasicFeedItem title url = BasicFeedItem {
+    itemTitle = title,
+    itemImageURL = url,
+    itemBody = Nothing,
+    itemBackgroundColour = Nothing,
+    itemTitleColour = Nothing,
+    itemBodyColour = Nothing
+}
+
+instance ToFormUrlEncoded FeedItemParams where
+    toFormUrlEncoded (BasicFeedItem {..}) =
+        [ ( "params[title]"    , T.pack itemTitle    )
+        , ( "params[image_url]", T.pack itemImageURL )
+        ]
+
+data FeedItem = FeedItem {
+    itemAccountID :: AccountID,
+    itemType      :: FeedItemType,
+    itemParams    :: FeedItemParams,
+    itemURL       :: Maybe String
+}
+
+instance ToFormUrlEncoded FeedItem where
+    toFormUrlEncoded item =
+        [ ( "account_id", T.pack $ itemAccountID item   )
+        , ( "type"      , T.pack $ show $ itemType item )
+        ] ++ toFormUrlEncoded (itemParams item)
+
+--------------------------------------------------------------------------------
+
+data Webhooks = Webhooks {
+    webhooks :: [Webhook]
+} deriving (Show, Generic)
+
+instance FromJSON Webhooks
+
+data Webhook = Webhook {
+    webhookAccountID :: AccountID,
+    webhookURL       :: String,
+    webhookID        :: Maybe WebhookID
+} deriving Show
+
+instance FromJSON Webhook where
+    parseJSON (Object v) =
+        Webhook <$> v .: "account_id"
+                <*> v .: "url"
+                <*> v .: "id"
+    parseJSON _ = mzero
+
+instance ToFormUrlEncoded Webhook where
+    toFormUrlEncoded hook =
+        [ ( "account_id", T.pack $ webhookAccountID hook )
+        , ( "url"       , T.pack $ webhookURL hook       )
+        ]
+
+--------------------------------------------------------------------------------
+
+data FileUploadReq = FileUploadReq {
+    uploadFileName :: String,
+    uploadFileType :: String
+}
+
+instance ToFormUrlEncoded FileUploadReq where
+    toFormUrlEncoded req =
+        [ ( "file_name", T.pack $ uploadFileName req )
+        , ( "file_type", T.pack $ uploadFileType req )
+        ]
+
+data FileUploadRes = FileUploadRes {
+    uploadURL     :: String,
+    uploadPostURL :: String
+}
+
+instance FromJSON FileUploadRes where
+    parseJSON (Object v) =
+        FileUploadRes <$> v .: "file_url"
+                      <*> v .: "file_type"
+    parseJSON _ = mzero
+
+--------------------------------------------------------------------------------
+
+-- | Transaction attachments.
+data Attachment = Attachment {
+    attachmentTransaction :: TransactionID,
+    attachmentFileType    :: String,
+    attachmentURL         :: String,
+    attachmentID          :: Maybe AttachmentID,
+    attachmentUserID      :: Maybe String,
+    attachmentCreated     :: Maybe String
+} deriving Show
+
+instance FromJSON Attachment where
+    parseJSON (Object v) =
+        Attachment <$> v .: "external_id"
+                   <*> v .: "file_type"
+                   <*> v .: "file_url"
+                   <*> v .: "id"
+                   <*> v .: "user_id"
+                   <*> v .: "created"
+    parseJSON _ = mzero
+
+instance ToFormUrlEncoded Attachment where
+    toFormUrlEncoded att =
+        [ ( "external_id", T.pack $ attachmentTransaction att )
+        , ( "file_url",    T.pack $ attachmentURL att         )
+        , ( "file_type",   T.pack $ attachmentFileType att    )
+        ]
 
 --------------------------------------------------------------------------------

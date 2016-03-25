@@ -10,14 +10,7 @@ module Mondo (
 
 --------------------------------------------------------------------------------
 
-import Control.Monad.IO.Class
-
-import qualified Data.ByteString.Internal as BS
-
 import Web.Authenticate.OAuth
-
-import Servant.API.BasicAuth
-import Servant.Client (ServantError)
 
 import Mondo.Types
 import Mondo.API

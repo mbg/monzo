@@ -28,7 +28,13 @@ foo = do
     r2 <- getBalance (accountID acc)
     liftIO $ print r2
 
-    r3 <- getTransactions (accountID acc)
+    r3 <- listTransactions (accountID acc)
     liftIO $ print r3
+
+    createFeedItem $ FeedItem
+        (accountID acc)
+        BasicItem
+        (newBasicFeedItem "Haskell test" "https://www.haskell.org/static/img/logo.png?etag=rJR84DMh")
+        Nothing
 
 --------------------------------------------------------------------------------
