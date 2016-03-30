@@ -1,4 +1,4 @@
 .cabal-sandbox/
 dist/
 cabal.sandbox.config
-test/token.txt
+examples/token.txt
