@@ -16,7 +16,7 @@ import Mondo
 --------------------------------------------------------------------------------
 
 token :: String
-token = head $ lines $ unsafePerformIO $ readFile "test/token.txt"
+token = head $ lines $ unsafePerformIO $ readFile "token.txt"
 
 --------------------------------------------------------------------------------
 
