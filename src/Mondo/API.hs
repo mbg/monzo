@@ -6,10 +6,23 @@
 {-# LANGUAGE FunctionalDependencies #-}
 
 module Mondo.API (
+    MondoAuth,
+
+    TransactionsAPI,
+    FeedAPI,
+    WebhooksAPI,
+    AttachmentsAPI,
+    AuthAPI,
+    MondoAPI,
+
+    mondoAPI,
+
     Mondo,
 
     withMondo,
-    getAccounts,
+    withMondoAt,
+    
+    listAccounts,
     getBalance,
     getTransaction,
     listTransactions,
@@ -59,19 +72,28 @@ mondoAuthReq token = addHeader "Authorization" ("Bearer " <> token)
 
 --------------------------------------------------------------------------------
 
+-- | Adds pagination options to an API.
+type Paginated c cts a =
+    QueryParam "limit" Int :>
+    QueryParam "since" Since :>
+    QueryParam "before" Timestamp :>
+    c cts a
+
+--------------------------------------------------------------------------------
+
 type TransactionsAPI =
       Capture "transaction_id" TransactionID :>
       QueryParam "expand[]" String :>
       Get '[JSON] TransactionResponse
  :<|> QueryParam "account_id" AccountID :>
-      Get '[JSON] Transactions
+      Paginated Get '[JSON] Transactions
  :<|> Capture "transaction_id" TransactionID :>
       ReqBody '[FormUrlEncoded] Metadata :>
       Patch '[JSON] TransactionResponse
 
 -- | A type representing Mondo's feed API.
 type FeedAPI =
-      ReqBody '[FormUrlEncoded] FeedItem :> Post '[JSON] Empty
+      ReqBody '[FormUrlEncoded] (FeedItem BasicItem) :> Post '[JSON] Empty
 
 -- | A type representing Mondo's webhooks API.
 type WebhooksAPI =
@@ -105,129 +127,127 @@ mondoURL = BaseUrl Https "api.getmondo.co.uk" 443 "/"
 
 --------------------------------------------------------------------------------
 
-type Mondo = ReaderT String (ReaderT Manager (ExceptT ServantError IO))
+type Mondo = ReaderT String (ReaderT Manager (ReaderT BaseUrl (ExceptT ServantError IO)))
 
 withMondo :: String -> Mondo a -> IO (Either ServantError a)
-withMondo tkn m = do
-    manager <- newManager tlsManagerSettings
-    runExceptT (runReaderT (runReaderT m tkn) manager)
+withMondo = withMondoAt mondoURL
 
+withMondoAt :: BaseUrl -> String -> Mondo a -> IO (Either ServantError a)
+withMondoAt url tkn m = do
+    manager <- newManager tlsManagerSettings
+    runExceptT (runReaderT (runReaderT (runReaderT m tkn) manager) url)
+
+-- | `credential` retrieves the OAuth token used to make API requests.
 credential :: Mondo String
 credential = ask
 
+-- | `manager` retrives the HTTP client used to make API requests.
 manager :: Mondo Manager
 manager = lift ask
 
+baseurl :: Mondo BaseUrl
+baseurl = lift $ lift ask
+
 --------------------------------------------------------------------------------
 
-fullApi = client mondoAPI mondoURL
+fullApi = client mondoAPI
 
-transactionsApi :: Manager -> String ->
+transactionsApi :: Manager -> BaseUrl -> String ->
       (TransactionID -> Maybe String -> ExceptT ServantError IO TransactionResponse)
- :<|> ((Maybe AccountID -> ExceptT ServantError IO Transactions)
+ :<|> ((Maybe AccountID -> Maybe Int -> Maybe Since -> Maybe Timestamp -> ExceptT ServantError IO Transactions)
  :<|> (TransactionID -> Metadata -> ExceptT ServantError IO TransactionResponse))
-transactionsApi mgr tkn = getNth (Proxy :: Proxy 2) $ fullApi mgr tkn
+transactionsApi mgr url tkn = getNth (Proxy :: Proxy 2) $ fullApi url mgr tkn
 
-feedApi mgr tkn = getNth (Proxy :: Proxy 3) $ fullApi mgr tkn
-webhooksApi mgr tkn = getNth (Proxy :: Proxy 4) $ fullApi mgr tkn
+feedApi mgr url tkn = getNth (Proxy :: Proxy 3) $ fullApi url mgr tkn
+webhooksApi mgr url tkn = getNth (Proxy :: Proxy 4) $ fullApi url mgr tkn
 
-getAccounts :: Mondo AccountsResponse
-getAccounts = do
+handleAPI :: (Manager -> BaseUrl -> String -> Mondo a) -> Mondo a
+handleAPI api = do
     mgr <- manager
+    url <- baseurl
     tkn <- credential
-    let
-        fn = getNth (Proxy :: Proxy 0) $ fullApi mgr tkn
-    lift $ lift fn
+    api mgr url tkn
 
-getBalance :: AccountID -> Mondo Balance
-getBalance acc = do
-    mgr <- manager
-    tkn <- credential
+-- | `listAccounts` lists all of the current user's accounts.
+listAccounts :: Mondo [Account]
+listAccounts = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 1) $ fullApi mgr tkn
-    lift $ lift $ fn (Just acc)
+        fn = getNth (Proxy :: Proxy 0) $ fullApi url mgr tkn
+    lift $ lift $ lift $ accounts <$> fn
 
-getTransaction :: TransactionID -> Bool -> Mondo Transaction
-getTransaction tr expandMerchant = do
-    mgr <- manager
-    tkn <- credential
+-- | `getBalance acc` returns `acc`'s current balance.
+getBalance :: Account -> Mondo Balance
+getBalance Account{..} = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 0) $ transactionsApi mgr tkn
+        fn = getNth (Proxy :: Proxy 1) $ fullApi url mgr tkn
+    lift $ lift $ lift $ fn (Just accountID)
+
+-- | `getTransaction trans expandMerchant` retrives a transaction `trans` and
+--   optionally expands information about the merchant if `expandMerchant` is
+--   `True`.
+getTransaction :: Transaction -> Bool -> Mondo Transaction
+getTransaction Transaction{..} expandMerchant = handleAPI $ \mgr url tkn -> do
+    let
+        fn = getNth (Proxy :: Proxy 0) $ transactionsApi mgr url tkn
         ex = if expandMerchant then Just "merchant" else Nothing
-    lift $ lift (transaction <$> fn tr ex)
+    lift $ lift $ lift (transaction <$> fn transactionID ex)
 
-listTransactions :: AccountID -> Mondo Transactions
-listTransactions acc = do
-    mgr <- manager
-    tkn <- credential
+-- | `listTransactions acc opts` lists all transactions for `acc`.
+listTransactions :: Account -> PageOptions -> Mondo [Transaction]
+listTransactions Account{..} opts = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 1) $ transactionsApi mgr tkn
-    lift $ lift $ fn (Just acc)
+        fn = getNth (Proxy :: Proxy 1) $ transactionsApi mgr url tkn
+    lift $ lift $ lift $ transactions <$> fn (Just accountID) (limit opts) (since opts) (Timestamp <$> before opts)
 
-annotateTransaction :: TransactionID -> Metadata -> Mondo Transaction
-annotateTransaction tr meta = do
-    mgr <- manager
-    tkn <- credential
+-- | `annotateTransaction trans metadata` annotates `trans` with some metadata.
+annotateTransaction :: Transaction -> Metadata -> Mondo Transaction
+annotateTransaction Transaction{..} meta = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 2) $ transactionsApi mgr tkn
-    lift $ lift (transaction <$> fn tr meta)
+        fn = getNth (Proxy :: Proxy 2) $ transactionsApi mgr url tkn
+    lift $ lift $ lift (transaction <$> fn transactionID meta)
 
 -- | `createFeedItem item' creates a new feed item.
-createFeedItem :: FeedItem -> Mondo ()
-createFeedItem item = do
-    mgr <- manager
-    tkn <- credential
+createFeedItem :: FeedItem BasicItem -> Mondo ()
+createFeedItem item = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 0) $ feedApi mgr tkn
-    lift $ lift $ toUnit <$> fn item
+        fn = getNth (Proxy :: Proxy 0) $ feedApi mgr url tkn
+    lift $ lift $ lift $ toUnit <$> fn item
 
 registerWebhook :: Webhook -> Mondo Webhook
-registerWebhook hook = do
-    mgr <- manager
-    tkn <- credential
+registerWebhook hook = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 0) $ webhooksApi mgr tkn
-    lift $ lift $ fn hook
+        fn = getNth (Proxy :: Proxy 0) $ webhooksApi mgr url tkn
+    lift $ lift $ lift $ fn hook
 
-listWebhooks :: AccountID -> Mondo Webhooks
-listWebhooks acc = do
-    mgr <- manager
-    tkn <- credential
+listWebhooks :: Account -> Mondo Webhooks
+listWebhooks Account{..} = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 1) $ webhooksApi mgr tkn
-    lift $ lift $ fn (Just acc)
+        fn = getNth (Proxy :: Proxy 1) $ webhooksApi mgr url tkn
+    lift $ lift $ lift $ fn (Just accountID)
 
 deleteWebhook :: WebhookID -> Mondo ()
-deleteWebhook hookID = do
-    mgr <- manager
-    tkn <- credential
+deleteWebhook hookID = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 2) $ webhooksApi mgr tkn
-    lift $ lift $ toUnit <$> fn hookID
+        fn = getNth (Proxy :: Proxy 2) $ webhooksApi mgr url tkn
+    lift $ lift $ lift $ toUnit <$> fn hookID
 
 uploadAttachment :: FileUploadReq -> Mondo FileUploadRes
-uploadAttachment req = do
-    mgr <- manager
-    tkn <- credential
+uploadAttachment req = handleAPI $ \mgr url tkn -> do
     let
-        fn =  getNth (Proxy :: Proxy 5) $ fullApi mgr tkn
-    lift $ lift $ fn req
+        fn =  getNth (Proxy :: Proxy 5) $ fullApi url mgr tkn
+    lift $ lift $ lift $ fn req
 
 registerAttachment :: Attachment -> Mondo Attachment
-registerAttachment att = do
-    mgr <- manager
-    tkn <- credential
+registerAttachment att = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 6) $ fullApi mgr tkn
-    lift $ lift $ fn att
+        fn = getNth (Proxy :: Proxy 6) $ fullApi url mgr tkn
+    lift $ lift $ lift $ fn att
 
 removeAttachment :: AttachmentID -> Mondo ()
-removeAttachment attID = do
-    mgr <- manager
-    tkn <- credential
+removeAttachment attID = handleAPI $ \mgr url tkn -> do
     let
-        fn = getNth (Proxy :: Proxy 7) $ fullApi mgr tkn
-    lift $ lift $ toUnit <$> fn attID
+        fn = getNth (Proxy :: Proxy 7) $ fullApi url mgr tkn
+    lift $ lift $ lift $ toUnit <$> fn attID
 
 --------------------------------------------------------------------------------
 

@@ -10,7 +10,7 @@ name:                   mondo
 -- PVP summary:         +-+------- breaking API changes
 --                      | | +----- non-breaking API additions
 --                      | | | +--- code changes with no API change
-version:                0.2.0.0
+version:                0.3.0.0
 
 -- A short (one-line) description of the package.
 synopsis:               Haskell bindings for the Mondo API
@@ -41,7 +41,7 @@ build-type:             Simple
 -- Extra files to be distributed with the package, such as examples or a
 -- README.
 extra-source-files:     README.md,
-                        test/Example.hs
+                        examples/Example.hs
 
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:          >=1.10
@@ -52,11 +52,11 @@ source-repository head
 
 library
   -- Modules exported by the library.
-  exposed-modules:      Mondo
+  exposed-modules:      Mondo,
+                        Mondo.API
 
   -- Modules included in this library but not exported.
-  other-modules:        Mondo.API,
-                        Mondo.Types
+  other-modules:        Mondo.Types
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -73,7 +73,10 @@ library
                         bytestring >=0.10,
                         mtl,
                         text >= 1.2,
-                        containers
+                        containers,
+                        time >=1.5,
+                        timerep >=2.0,
+                        unordered-containers >=0.2
 
   -- Directories containing source files.
   hs-source-dirs:       src
@@ -90,4 +93,38 @@ library
                         FlexibleContexts,
                         UndecidableInstances,
                         TypeFamilies,
-                        RecordWildCards
+                        RecordWildCards,
+                        PolyKinds,
+                        GADTs,
+                        ImpredicativeTypes
+
+test-suite spec
+    type:               exitcode-stdio-1.0
+
+    main-is:            Spec.hs
+
+    other-modules:      Mondo.MondoSpec,
+                        Mondo.Server
+
+    build-depends:      base >=4.8 && <4.9,
+                        mondo == 0.3.*,
+                        servant >= 0.5,
+                        servant-client >= 0.5,
+                        servant-server >= 0.5,
+                        hspec,
+                        wai >= 3.2,
+                        warp >= 3.2,
+                        transformers >= 0.4,
+                        network >= 2.6,
+                        time >= 1.5,
+                        timerep >= 2.0
+
+    hs-source-dirs:     test
+
+    default-language:   Haskell2010
+
+    default-extensions: MultiParamTypeClasses,
+                        TypeFamilies,
+                        TypeOperators,
+                        FlexibleInstances,
+                        ScopedTypeVariables
