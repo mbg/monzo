@@ -64,8 +64,8 @@ library
   -- Other library packages from which modules are imported.
   build-depends:        base >=4.8 && <4.9,
                         aeson >=0.11,
-                        servant >=0.5,
-                        servant-client >=0.5,
+                        servant >=0.6,
+                        servant-client >=0.6,
                         transformers >=0.4,
                         http-client >= 0.4,
                         http-client-tls >= 0.2,
@@ -108,9 +108,9 @@ test-suite spec
 
     build-depends:      base >=4.8 && <4.9,
                         mondo == 0.3.*,
-                        servant >= 0.5,
-                        servant-client >= 0.5,
-                        servant-server >= 0.5,
+                        servant >= 0.6,
+                        servant-client >= 0.6,
+                        servant-server >= 0.6,
                         hspec,
                         wai >= 3.2,
                         warp >= 3.2,
