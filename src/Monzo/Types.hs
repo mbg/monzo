@@ -1,9 +1,9 @@
 --------------------------------------------------------------------------------
--- Haskell bindings for the Mondo API                                         --
+-- Haskell bindings for the Monzo API                                         --
 -- Written by Michael B. Gale (michael.gale@cl.cam.ac.uk)                     --
 --------------------------------------------------------------------------------
 
-module Mondo.Types where
+module Monzo.Types where
 
 --------------------------------------------------------------------------------
 

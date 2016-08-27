@@ -1,9 +1,9 @@
 --------------------------------------------------------------------------------
--- Haskell bindings for the Mondo API                                         --
+-- Haskell bindings for the Monzo API                                         --
 -- Written by Michael B. Gale (michael.gale@cl.cam.ac.uk)                     --
 --------------------------------------------------------------------------------
 
-module Mondo.Server where
+module Monzo.Server where
 
 --------------------------------------------------------------------------------
 
@@ -26,13 +26,13 @@ import Servant.Server.Internal
 import Servant.Server.Internal.Router
 import Servant.Server.Internal.RoutingApplication
 
-import Mondo
-import Mondo.API
+import Monzo
+import Monzo.API
 
 --------------------------------------------------------------------------------
 
-instance HasServer api ctx => HasServer (MondoAuth :> api) ctx where
-    type ServerT (MondoAuth :> api) m = ServerT api m
+instance HasServer api ctx => HasServer (MonzoAuth :> api) ctx where
+    type ServerT (MonzoAuth :> api) m = ServerT api m
 
     route Proxy =
         route (Proxy :: Proxy api)
@@ -58,13 +58,13 @@ balance = Balance {
 
 --------------------------------------------------------------------------------
 
-handler :: Server MondoAPI
+handler :: Server MonzoAPI
 handler = return (AccountsResponse [acc])
      :<|> (\acc -> return balance)
      :<|> undefined
 
 server :: Application
-server = serve mondoAPI handler
+server = serve monzoAPI handler
 
 startWaiApp :: Application -> IO (ThreadId, BaseUrl)
 startWaiApp app = do

@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- Haskell bindings for the Mondo API                                         --
+-- Haskell bindings for the Monzo API                                         --
 -- Written by Michael B. Gale (michael.gale@cl.cam.ac.uk)                     --
 --------------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ import Control.Monad.IO.Class
 
 import System.IO.Unsafe
 
-import Mondo
+import Monzo
 
 --------------------------------------------------------------------------------
 
@@ -21,14 +21,14 @@ token = head $ lines $ unsafePerformIO $ readFile "token.txt"
 
 --------------------------------------------------------------------------------
 
-printAccount :: Account -> Mondo ()
+printAccount :: Account -> Monzo ()
 printAccount Account{..} = liftIO $ do
     putStr accountDescription
     putStrLn $ " (" ++ accountID ++ ")"
     putStr "Created: "
     print (timestamp accountCreated)
 
-printBalance :: Balance -> Mondo ()
+printBalance :: Balance -> Monzo ()
 printBalance Balance{..} = liftIO $ do
     putStr "Balance: "
     print balanceValue
@@ -37,11 +37,11 @@ printBalance Balance{..} = liftIO $ do
     putStr "Spent today: "
     print balanceSpentToday
 
-printTransaction :: Transaction -> Mondo ()
+printTransaction :: Transaction -> Monzo ()
 printTransaction t@Transaction{..} = liftIO $ do
     print t
 
-foo :: Mondo ()
+foo :: Monzo ()
 foo = do
     -- get a list of accounts; this always returns one account at the moment
     [acc] <- listAccounts

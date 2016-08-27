@@ -3,28 +3,40 @@
 -- Written by Michael B. Gale (michael.gale@cl.cam.ac.uk)                     --
 --------------------------------------------------------------------------------
 
-module Mondo.MondoSpec where
+module Monzo (
+    module Monzo.Types,
+
+    Monzo,
+
+    withMonzo,
+    withMonzoAt,
+
+    listAccounts,
+    getBalance,
+    getTransaction,
+    listTransactions,
+    annotateTransaction,
+    createFeedItem,
+    registerWebhook,
+    listWebhooks,
+    deleteWebhook,
+    uploadAttachment,
+    registerAttachment,
+    removeAttachment
+) where
 
 --------------------------------------------------------------------------------
 
-import Control.Arrow (left)
+import Web.Authenticate.OAuth
 
-import Test.Hspec
-
-import Mondo
-import Mondo.Server
+import Monzo.Types
+import Monzo.API
 
 --------------------------------------------------------------------------------
 
-mondoTest baseUrl m = left show <$> withMondoAt baseUrl "" m
-
-spec :: Spec
-spec = describe "Mondo" $ beforeAll (startWaiApp server) $ afterAll endWaiApp $ do
-
-    it "Mondo.listAccounts" $ \(_, baseUrl) ->
-        mondoTest baseUrl listAccounts `shouldReturn` Right [acc]
-
-    it "Mondo.getBalance" $ \(_, baseUrl) ->
-        mondoTest baseUrl (getBalance acc) `shouldReturn` Right balance
+monzoAuth :: OAuth
+monzoAuth = newOAuth {
+    oauthServerName = "https://auth.getmondo.co.uk/"
+}
 
 --------------------------------------------------------------------------------

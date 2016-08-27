@@ -2,7 +2,7 @@
 --  see http://haskell.org/cabal/users-guide/
 
 -- The name of the package.
-name:                   mondo
+name:                   monzo
 
 -- The package version.  See the Haskell package versioning policy (PVP)
 -- for standards guiding when and how versions should be incremented.
@@ -10,13 +10,13 @@ name:                   mondo
 -- PVP summary:         +-+------- breaking API changes
 --                      | | +----- non-breaking API additions
 --                      | | | +--- code changes with no API change
-version:                0.3.0.0
+version:                0.4.0.0
 
 -- A short (one-line) description of the package.
-synopsis:               Haskell bindings for the Mondo API
+synopsis:               Haskell bindings for the Monzo API
 
 -- A longer description of the package.
-description:            Provides Haskell bindings for the Mondo API.
+description:            Provides Haskell bindings for the Monzo API.
 
 -- The license under which the package is released.
 license:                MIT
@@ -48,15 +48,15 @@ cabal-version:          >=1.10
 
 source-repository head
   type:                 git
-  location:             https://github.com/mbg/mondo
+  location:             https://github.com/mbg/monzo
 
 library
   -- Modules exported by the library.
-  exposed-modules:      Mondo,
-                        Mondo.API
+  exposed-modules:      Monzo,
+                        Monzo.API
 
   -- Modules included in this library but not exported.
-  other-modules:        Mondo.Types
+  other-modules:        Monzo.Types
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
@@ -103,11 +103,11 @@ test-suite spec
 
     main-is:            Spec.hs
 
-    other-modules:      Mondo.MondoSpec,
-                        Mondo.Server
+    other-modules:      Monzo.MonzoSpec,
+                        Monzo.Server
 
     build-depends:      base >=4.8 && <4.9,
-                        mondo == 0.3.*,
+                        monzo == 0.4.*,
                         servant >= 0.6,
                         servant-client >= 0.6,
                         servant-server >= 0.6,
