@@ -62,7 +62,7 @@ library
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:        base >=4.8 && <4.9,
+  build-depends:        base >=4.8 && <=4.9,
                         aeson >=0.11,
                         servant >=0.6,
                         servant-client >=0.6,
@@ -106,7 +106,7 @@ test-suite spec
     other-modules:      Monzo.MonzoSpec,
                         Monzo.Server
 
-    build-depends:      base >=4.8 && <4.9,
+    build-depends:      base >=4.8 && <=4.9,
                         monzo == 0.4.*,
                         servant >= 0.6,
                         servant-client >= 0.6,
